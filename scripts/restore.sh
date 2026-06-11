@@ -16,12 +16,12 @@ log "=== Restauration complète depuis Restic ==="
 
 log "Liste des snapshots disponibles :"
 docker exec -e RESTIC_PASSWORD="${RESTIC_PASSWORD}" \
-    -e RESTIC_REPOSITORY="sftp:backup@backup-server:/backups/restic-repo" \
+    -e RESTIC_REPOSITORY="/backups/restic-repo" \
     backup-client restic snapshots
 
 log "Restauration du snapshot: ${SNAPSHOT}"
 docker exec -e RESTIC_PASSWORD="${RESTIC_PASSWORD}" \
-    -e RESTIC_REPOSITORY="sftp:backup@backup-server:/backups/restic-repo" \
+    -e RESTIC_REPOSITORY="/backups/restic-repo" \
     backup-client sh -c "
         mkdir -p ${RESTORE_DIR} && \
         restic restore ${SNAPSHOT} --target ${RESTORE_DIR} && \

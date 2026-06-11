@@ -74,7 +74,7 @@ services:
     networks:
       - frontend
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      test: ["CMD-SHELL", "pidof nginx || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -84,28 +84,31 @@ services:
     container_name: backup-server
     volumes:
       - backup-data:/backups
-      - ./backup/ssh/authorized_keys:/keys/authorized_keys:ro
+      - backup-ssh-keys:/shared
     networks:
       - backend
     healthcheck:
-      test: ["CMD", "pgrep", "sshd"]
+      test: ["CMD-SHELL", "pgrep sshd && test -f /shared/id_ed25519.pub"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   backup-client:
-    build: ./backup-client
+    build:
+      context: .
+      dockerfile: backup-client/Dockerfile
     container_name: backup-client
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-app}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
       POSTGRES_DB: ${POSTGRES_DB:-appdb}
       DB_HOST: db-primary
       RESTIC_PASSWORD: ${RESTIC_PASSWORD:-backup-secret-key-change-me}
-      RESTIC_REPOSITORY: sftp:backup@backup-server:/backups/restic-repo
+      RESTIC_REPOSITORY: /backups/restic-repo
     volumes:
-      - ./backup/ssh/id_ed25519:/keys/id_ed25519:ro
-      - ./backup/ssh/id_ed25519.pub:/keys/id_ed25519.pub:ro
+      - backup-data:/backups
+      - backup-ssh-keys:/shared:ro
     depends_on:
       db-primary:
         condition: service_healthy
@@ -123,3 +126,4 @@ networks:
 volumes:
   db-data:
   backup-data:
+  backup-ssh-keys:

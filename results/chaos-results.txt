@@ -1,0 +1,19 @@
+[2026-06-11 13:48:21] ========================================
+[2026-06-11 13:48:21] TEST DE PANNE — scénario: web1
+[2026-06-11 13:48:21] ========================================
+[2026-06-11 13:48:21] Service opérationnel avant panne.
+[2026-06-11 13:48:21] === Mesure RPO ===
+[2026-06-11 13:48:21] Insertion d'un message de test avant la panne...
+[2026-06-11 13:48:21] Marqueur inséré : chaos-marker-1781178501
+[2026-06-11 13:48:22] Dernière sauvegarde connue : inconnue
+[2026-06-11 13:48:22] RPO estimé = temps écoulé depuis la dernière sauvegarde cron (max 5 min)
+[2026-06-11 13:48:22] Arrêt du composant: web1
+[2026-06-11 13:48:33] Le load balancer route encore vers le serveur sain — service toujours disponible.
+[2026-06-11 13:48:33] Redémarrage du composant: web1
+[2026-06-11 13:48:34] RTO mesuré (retour à la normale): 0 secondes
+[2026-06-11 13:48:34] ========================================
+[2026-06-11 13:48:34] RÉSUMÉ
+[2026-06-11 13:48:34]   Scénario    : web1
+[2026-06-11 13:48:34]   RTO         : 0 s
+[2026-06-11 13:48:34]   RPO estimé  : ≤ 5 min (intervalle cron sauvegarde)
+[2026-06-11 13:48:34] ========================================

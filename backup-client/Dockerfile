@@ -5,11 +5,12 @@ RUN apk add --no-cache \
     openssh-client \
     postgresql16-client \
     bash \
-    dcron \
     curl
 
-COPY backup.sh /usr/local/bin/backup.sh
-COPY entrypoint.sh /entrypoint.sh
+RUN mkdir -p /root/.ssh && chmod 700 /root/.ssh
+
+COPY backup-client/backup.sh /usr/local/bin/backup.sh
+COPY backup-client/entrypoint.sh /entrypoint.sh
 RUN chmod +x /usr/local/bin/backup.sh /entrypoint.sh
 
 ENTRYPOINT ["/entrypoint.sh"]

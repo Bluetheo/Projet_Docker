@@ -1,7 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-BACKUP_DIR="/tmp/backup-staging"
+LOCAL_STAGING="/tmp/backup-staging"
+REMOTE_STAGING="/backups/staging"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 LOG_FILE="/var/log/backup.log"
 
@@ -9,8 +10,8 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
 }
 
-mkdir -p "$BACKUP_DIR"
-log "=== Début sauvegarde $TIMESTAMP ==="
+mkdir -p "${LOCAL_STAGING}" "${REMOTE_STAGING}" /backups/restic-repo
+log "=== Début sauvegarde ${TIMESTAMP} ==="
 
 log "Dump PostgreSQL..."
 PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
@@ -18,15 +19,30 @@ PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
     -U "${POSTGRES_USER}" \
     -d "${POSTGRES_DB}" \
     -F c \
-    -f "${BACKUP_DIR}/db_${TIMESTAMP}.dump"
+    -f "${LOCAL_STAGING}/db_${TIMESTAMP}.dump"
 
-log "Sauvegarde Restic (chiffrée, via SFTP/SSH)..."
-export RESTIC_PASSWORD
-export RESTIC_REPOSITORY
+log "Transfert vers backup-server (SCP/SSH)..."
+if [ -f /root/.ssh/id_ed25519 ] && scp -i /root/.ssh/id_ed25519 \
+    -o StrictHostKeyChecking=accept-new \
+    -o BatchMode=yes \
+    "${LOCAL_STAGING}/db_${TIMESTAMP}.dump" \
+    "backup@backup-server:${REMOTE_STAGING}/" 2>/dev/null; then
+    log "Transfert SCP réussi."
+else
+    log "SCP indisponible, copie via volume partagé."
+    cp "${LOCAL_STAGING}/db_${TIMESTAMP}.dump" "${REMOTE_STAGING}/"
+fi
 
-restic snapshots >/dev/null 2>&1 || restic init
+log "Sauvegarde Restic chiffrée..."
+export RESTIC_PASSWORD="${RESTIC_PASSWORD:?RESTIC_PASSWORD manquant}"
+export RESTIC_REPOSITORY="${RESTIC_REPOSITORY:-/backups/restic-repo}"
 
-restic backup "${BACKUP_DIR}" \
+if ! restic snapshots >/dev/null 2>&1; then
+    log "Initialisation du dépôt Restic..."
+    restic init
+fi
+
+restic backup "${REMOTE_STAGING}" \
     --tag "auto" \
     --tag "db" \
     --host "projet-b2"
@@ -34,4 +50,5 @@ restic backup "${BACKUP_DIR}" \
 restic forget --keep-last 7 --prune
 
 log "=== Sauvegarde terminée ==="
-rm -rf "${BACKUP_DIR}"
+rm -rf "${LOCAL_STAGING}"
+find "${REMOTE_STAGING}" -name "*.dump" -mtime +1 -delete 2>/dev/null || true

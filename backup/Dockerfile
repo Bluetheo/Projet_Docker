@@ -4,11 +4,10 @@ RUN apk add --no-cache \
     openssh \
     restic \
     bash \
-    shadow \
-    su-exec
+    shadow
 
-RUN adduser -D -h /home/backup backup \
-    && mkdir -p /backups/restic-repo /var/run/sshd /home/backup/.ssh \
+RUN adduser -D -h /home/backup -s /bin/sh backup \
+    && mkdir -p /backups/restic-repo /var/run/sshd /home/backup/.ssh /shared \
     && chmod 700 /home/backup/.ssh \
     && chown -R backup:backup /backups /home/backup
 
@@ -17,6 +16,6 @@ RUN chmod +x /entrypoint.sh
 
 EXPOSE 22
 
-VOLUME ["/backups"]
+VOLUME ["/backups", "/shared"]
 
 ENTRYPOINT ["/entrypoint.sh"]

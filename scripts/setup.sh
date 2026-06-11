@@ -29,7 +29,8 @@ if [ ! -f "${SSH_DIR}/id_ed25519" ]; then
     chmod 644 "${SSH_DIR}/id_ed25519.pub" "${SSH_DIR}/authorized_keys"
     echo "Clés SSH générées dans backup/ssh/"
 else
-    echo "Clés SSH déjà présentes, conservation."
+    echo "Clés SSH déjà présentes, synchronisation authorized_keys..."
+    cp "${SSH_DIR}/id_ed25519.pub" "${SSH_DIR}/authorized_keys"
 fi
 
 echo ""
