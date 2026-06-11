@@ -1,0 +1,5 @@
+.env
+backup/ssh/
+*.sql.gz
+restic-cache/
+data/

@@ -1,0 +1,125 @@
+services:
+  db-primary:
+    image: postgres:16-alpine
+    container_name: db-primary
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-app} -d ${POSTGRES_DB:-appdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web1:
+    build: ./web
+    container_name: web1
+    environment:
+      SERVER_NAME: Serveur Web 1
+      DB_HOST: db-primary
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web2:
+    build: ./web
+    container_name: web2
+    environment:
+      SERVER_NAME: Serveur Web 2
+      DB_HOST: db-primary
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx-lb:
+    image: nginx:1.27-alpine
+    container_name: nginx-lb
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx-lb/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      web1:
+        condition: service_healthy
+      web2:
+        condition: service_healthy
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup-server:
+    build: ./backup
+    container_name: backup-server
+    volumes:
+      - backup-data:/backups
+      - ./backup/ssh/authorized_keys:/keys/authorized_keys:ro
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "pgrep", "sshd"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backup-client:
+    build: ./backup-client
+    container_name: backup-client
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-secretpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-appdb}
+      DB_HOST: db-primary
+      RESTIC_PASSWORD: ${RESTIC_PASSWORD:-backup-secret-key-change-me}
+      RESTIC_REPOSITORY: sftp:backup@backup-server:/backups/restic-repo
+    volumes:
+      - ./backup/ssh/id_ed25519:/keys/id_ed25519:ro
+      - ./backup/ssh/id_ed25519.pub:/keys/id_ed25519.pub:ro
+    depends_on:
+      db-primary:
+        condition: service_healthy
+      backup-server:
+        condition: service_healthy
+    networks:
+      - backend
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+
+volumes:
+  db-data:
+  backup-data:
